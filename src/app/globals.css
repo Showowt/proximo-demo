@@ -1,26 +1,105 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --prx-bg: #0b0b12;
+  --prx-bg2: #12121c;
+  --prx-surface: rgba(255, 255, 255, 0.045);
+  --prx-surface-hi: rgba(255, 255, 255, 0.07);
+  --prx-line: rgba(255, 255, 255, 0.09);
+  --prx-text: #f4f2f7;
+  --prx-muted: #9a98aa;
+  --prx-faint: #646274;
+  --prx-ember: #ff6a45;
+  --prx-ember2: #ff9a5c;
+  --prx-teal: #46d6c0;
+  --prx-gold: #f5c26b;
+  --prx-grad: linear-gradient(135deg, #ff6a45 0%, #ff9a5c 100%);
+  --prx-grad-teal: linear-gradient(135deg, #46d6c0 0%, #3ba6c9 100%);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-background: var(--prx-bg);
+  --color-foreground: var(--prx-text);
+  --font-sans: var(--font-manrope);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--prx-bg);
+  color: var(--prx-text);
+  font-family: var(--font-manrope), "Manrope", system-ui, sans-serif;
+}
+
+.disp {
+  font-family: var(--font-bricolage), "Bricolage Grotesque", sans-serif;
+}
+
+.noscroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.noscroll {
+  scrollbar-width: none;
+}
+
+@keyframes floatUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  60% {
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(70, 214, 192, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(70, 214, 192, 0);
+  }
+}
+
+.fu {
+  animation: floatUp 0.4s ease both;
+}
+
+.pop-in {
+  animation: popIn 0.5s ease both;
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease both;
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
 }
