@@ -14,15 +14,43 @@ const bricolage = Bricolage_Grotesque({
   weight: ["400", "500", "600", "700", "800"],
 });
 
+const SITE_URL = "https://proximo-demo.vercel.app";
+
 export const metadata: Metadata = {
   title: "PRÓXIMO · Hacemos visible a quién deberías conocer",
   description:
-    "AI-powered event networking. Walk into any room and instantly know who you should meet, why, and what to say.",
+    "Entrá a cualquier evento y sabé al instante a quién conocer, por qué, y qué decirle. AI networking para eventos en vivo.",
+  metadataBase: new URL(SITE_URL),
+  icons: {
+    icon: "/favicon-32.png",
+    apple: "/apple-touch-icon.png",
+  },
   openGraph: {
-    title: "PRÓXIMO · Event Networking AI",
+    title: "PRÓXIMO · Hacemos visible a quién deberías conocer",
     description:
-      "Hacemos visible a quién deberías conocer. AI matchmaking para eventos en vivo.",
+      "Entrá a cualquier evento y sabé al instante a quién conocer, por qué, y qué decirle. AI networking para eventos en vivo.",
+    url: SITE_URL,
+    siteName: "PRÓXIMO",
+    images: [
+      {
+        url: "/og-card.png",
+        width: 1200,
+        height: 630,
+        alt: "PRÓXIMO — AI Event Networking",
+      },
+    ],
+    locale: "es_SV",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "PRÓXIMO · Hacemos visible a quién deberías conocer",
+    description:
+      "AI networking para eventos en vivo. Sabé a quién conocer, por qué, y qué decirle.",
+    images: ["/og-card.png"],
+  },
+  other: {
+    "og:logo": `${SITE_URL}/og-image.png`,
   },
 };
 
