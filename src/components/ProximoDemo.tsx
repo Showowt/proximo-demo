@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Sparkles,
   MapPin,
@@ -299,6 +299,19 @@ const FILTERS: { id: FilterId; label: string; icon: LucideIcon }[] = [
   { id: "near", label: "Cerca de mí", icon: MapPin },
 ];
 
+// ── Hooks ────────────────────────────────────────────────────
+
+function useIsMobile(): boolean {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return mobile;
+}
+
 // ── Helpers ──────────────────────────────────────────────────
 
 function initials(n: string): string {
@@ -309,7 +322,13 @@ function initials(n: string): string {
     .join("");
 }
 
-function Avatar({ person, size = 44 }: { person: Person | UserProfile; size?: number }) {
+function Avatar({
+  person,
+  size = 44,
+}: {
+  person: Person | UserProfile;
+  size?: number;
+}) {
   return (
     <div
       style={{
@@ -383,6 +402,111 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
+// ── App Shell — shared between mobile & desktop ──────────────
+
+function AppShell({
+  view,
+  setView,
+  matches,
+  children,
+  selected,
+  overlay,
+}: {
+  view: ViewId;
+  setView: (v: ViewId) => void;
+  matches: string[];
+  children: React.ReactNode;
+  selected: Person | null;
+  overlay: Person | null;
+}) {
+  return (
+    <>
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto noscroll relative">
+        {children}
+      </div>
+
+      {/* Bottom nav — only when no sheet/overlay is open and not in chat */}
+      {view !== "chat" && !selected && !overlay && (
+        <nav
+          style={{
+            borderTop: `1px solid ${C.line}`,
+            background: "rgba(11,11,18,0.92)",
+            backdropFilter: "blur(16px)",
+            WebkitBackdropFilter: "blur(16px)",
+            paddingBottom:
+              "max(env(safe-area-inset-bottom, 0px), 8px)",
+          }}
+          className="flex items-center justify-around px-2 pt-2.5"
+        >
+          {(
+            [
+              { id: "sala" as ViewId, icon: Compass, label: "Sala" },
+              {
+                id: "matches" as ViewId,
+                icon: Zap,
+                label: "Matches",
+                badge: matches.length,
+              },
+              {
+                id: "mensajes" as ViewId,
+                icon: MessageCircle,
+                label: "Mensajes",
+              },
+              { id: "perfil" as ViewId, icon: User, label: "Perfil" },
+            ] as const
+          ).map((n) => {
+            const on = view === n.id;
+            const badge = "badge" in n ? n.badge : 0;
+            return (
+              <button
+                key={n.id}
+                onClick={() => setView(n.id)}
+                className="flex flex-col items-center gap-1 relative py-1"
+                style={{ width: 72, minHeight: 44 }}
+              >
+                <n.icon
+                  size={22}
+                  color={on ? C.ember : C.faint}
+                  strokeWidth={on ? 2.6 : 2}
+                />
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: on ? 700 : 500,
+                    color: on ? C.ember : C.faint,
+                  }}
+                >
+                  {n.label}
+                </span>
+                {badge > 0 && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: -2,
+                      right: 14,
+                      background: C.ember,
+                      color: "#0B0B12",
+                      fontSize: 9,
+                      fontWeight: 800,
+                      borderRadius: 8,
+                      minWidth: 16,
+                      height: 16,
+                    }}
+                    className="flex items-center justify-center px-1"
+                  >
+                    {badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      )}
+    </>
+  );
+}
+
 // ── Main Component ───────────────────────────────────────────
 
 export default function ProximoDemo() {
@@ -395,6 +519,7 @@ export default function ProximoDemo() {
   const [overlay, setOverlay] = useState<Person | null>(null);
   const [threads, setThreads] = useState<Threads>({});
   const [draft, setDraft] = useState("");
+  const isMobile = useIsMobile();
 
   const byId = (id: string): Person | undefined =>
     PEOPLE.find((p) => p.id === id);
@@ -470,6 +595,96 @@ export default function ProximoDemo() {
 
   const topPicks = [...PEOPLE].sort((a, b) => b.score - a.score).slice(0, 3);
 
+  // Shared content views
+  const content = (
+    <>
+      {view === "sala" && (
+        <Sala
+          topPicks={topPicks}
+          filter={filter}
+          setFilter={setFilter}
+          filtered={filtered}
+          setSelected={setSelected}
+          connect={connect}
+          sent={sent}
+          matches={matches}
+          openChat={openChat}
+        />
+      )}
+      {view === "matches" && (
+        <Matches matches={matches} byId={byId} openChat={openChat} />
+      )}
+      {view === "mensajes" && (
+        <MsgList
+          matches={matches}
+          byId={byId}
+          threads={threads}
+          openChat={openChat}
+        />
+      )}
+      {view === "chat" && chatId && (
+        <Chat
+          p={byId(chatId)!}
+          thread={threads[chatId] || []}
+          useIcebreaker={useIcebreaker}
+          draft={draft}
+          setDraft={setDraft}
+          sendDraft={sendDraft}
+          back={() => setView("mensajes")}
+          isMobile={isMobile}
+        />
+      )}
+      {view === "perfil" && <Perfil />}
+
+      {/* Detail sheet */}
+      {selected && (
+        <Detail
+          p={selected}
+          close={() => setSelected(null)}
+          connect={connect}
+          sent={sent}
+          matches={matches}
+          openChat={openChat}
+        />
+      )}
+
+      {/* Match overlay */}
+      {overlay && (
+        <MatchOverlay
+          p={overlay}
+          close={() => setOverlay(null)}
+          openChat={openChat}
+        />
+      )}
+    </>
+  );
+
+  // ── MOBILE: Full-screen native app ─────────────────────────
+  if (isMobile) {
+    return (
+      <div
+        style={{
+          background: C.bg,
+          height: "100dvh",
+          paddingTop: "env(safe-area-inset-top, 0px)",
+        }}
+        className="w-full flex flex-col relative overflow-hidden"
+      >
+        {/* Mobile status area — inherits from device */}
+        <AppShell
+          view={view}
+          setView={setView}
+          matches={matches}
+          selected={selected}
+          overlay={overlay}
+        >
+          {content}
+        </AppShell>
+      </div>
+    );
+  }
+
+  // ── DESKTOP: Phone mockup for presentations ────────────────
   return (
     <div
       style={{
@@ -533,7 +748,7 @@ export default function ProximoDemo() {
           }}
           className="flex flex-col"
         >
-          {/* Status bar */}
+          {/* Fake status bar */}
           <div
             className="flex items-center justify-between px-7 pt-3 pb-1"
             style={{ color: C.text }}
@@ -573,145 +788,15 @@ export default function ProximoDemo() {
             </div>
           </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto noscroll">
-            {view === "sala" && (
-              <Sala
-                topPicks={topPicks}
-                filter={filter}
-                setFilter={setFilter}
-                filtered={filtered}
-                setSelected={setSelected}
-                connect={connect}
-                sent={sent}
-                matches={matches}
-                openChat={openChat}
-              />
-            )}
-            {view === "matches" && (
-              <Matches
-                matches={matches}
-                byId={byId}
-                openChat={openChat}
-              />
-            )}
-            {view === "mensajes" && (
-              <MsgList
-                matches={matches}
-                byId={byId}
-                threads={threads}
-                openChat={openChat}
-              />
-            )}
-            {view === "chat" && chatId && (
-              <Chat
-                p={byId(chatId)!}
-                thread={threads[chatId] || []}
-                useIcebreaker={useIcebreaker}
-                draft={draft}
-                setDraft={setDraft}
-                sendDraft={sendDraft}
-                back={() => setView("mensajes")}
-              />
-            )}
-            {view === "perfil" && <Perfil />}
-          </div>
-
-          {/* Detail sheet */}
-          {selected && (
-            <Detail
-              p={selected}
-              close={() => setSelected(null)}
-              connect={connect}
-              sent={sent}
-              matches={matches}
-              openChat={openChat}
-            />
-          )}
-
-          {/* Match overlay */}
-          {overlay && (
-            <MatchOverlay
-              p={overlay}
-              close={() => setOverlay(null)}
-              openChat={openChat}
-            />
-          )}
-
-          {/* Bottom nav */}
-          {view !== "chat" && (
-            <div
-              style={{
-                borderTop: `1px solid ${C.line}`,
-                background: "rgba(11,11,18,0.85)",
-                backdropFilter: "blur(12px)",
-              }}
-              className="flex items-center justify-around px-2 pt-2.5 pb-6"
-            >
-              {(
-                [
-                  { id: "sala" as ViewId, icon: Compass, label: "Sala" },
-                  {
-                    id: "matches" as ViewId,
-                    icon: Zap,
-                    label: "Matches",
-                    badge: matches.length,
-                  },
-                  {
-                    id: "mensajes" as ViewId,
-                    icon: MessageCircle,
-                    label: "Mensajes",
-                  },
-                  { id: "perfil" as ViewId, icon: User, label: "Perfil" },
-                ] as const
-              ).map((n) => {
-                const on = view === n.id;
-                const badge = "badge" in n ? n.badge : 0;
-                return (
-                  <button
-                    key={n.id}
-                    onClick={() => setView(n.id)}
-                    className="flex flex-col items-center gap-1 relative"
-                    style={{ width: 64 }}
-                  >
-                    <n.icon
-                      size={21}
-                      color={on ? C.ember : C.faint}
-                      strokeWidth={on ? 2.6 : 2}
-                    />
-                    <span
-                      style={{
-                        fontSize: 10,
-                        fontWeight: on ? 700 : 500,
-                        color: on ? C.ember : C.faint,
-                      }}
-                    >
-                      {n.label}
-                    </span>
-                    {badge > 0 && (
-                      <span
-                        style={{
-                          position: "absolute",
-                          top: -3,
-                          right: 12,
-                          background: C.ember,
-                          color: "#0B0B12",
-                          fontSize: 9,
-                          fontWeight: 800,
-                          borderRadius: 8,
-                          minWidth: 16,
-                          height: 16,
-                        }}
-                        className="flex items-center justify-center px-1"
-                      >
-                        {badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          <AppShell
+            view={view}
+            setView={setView}
+            matches={matches}
+            selected={selected}
+            overlay={overlay}
+          >
+            {content}
+          </AppShell>
         </div>
       </div>
 
@@ -748,7 +833,7 @@ function Sala({
   return (
     <div className="pb-4">
       {/* Event header */}
-      <div className="px-5 pt-2 pb-3">
+      <div className="px-5 pt-3 pb-3">
         <div className="flex items-center gap-2 mb-1.5">
           <span
             style={{
@@ -930,7 +1015,7 @@ function Sala({
                   borderRadius: 20,
                   whiteSpace: "nowrap",
                 }}
-                className="flex items-center gap-1.5 px-3 py-2 flex-shrink-0"
+                className="flex items-center gap-1.5 px-3.5 py-2.5 flex-shrink-0"
               >
                 <f.icon
                   size={13}
@@ -1034,7 +1119,7 @@ function Sala({
                   borderRadius: 12,
                   opacity: isSent ? 0.8 : 1,
                 }}
-                className="w-full mt-2.5 flex items-center justify-center gap-1.5 py-2.5"
+                className="w-full mt-2.5 flex items-center justify-center gap-1.5 py-3"
               >
                 {isMatch ? (
                   <>
@@ -1120,9 +1205,10 @@ function Detail({
         inset: 0,
         background: "rgba(0,0,0,0.55)",
         backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
         zIndex: 30,
       }}
-      className="flex items-end"
+      className="flex items-end fade-in"
       onClick={close}
     >
       <div
@@ -1132,9 +1218,11 @@ function Detail({
           borderRadius: "28px 28px 0 0",
           border: `1px solid ${C.line}`,
           maxHeight: "88%",
+          paddingBottom:
+            "max(env(safe-area-inset-bottom, 0px), 28px)",
           animation: "floatUp .3s ease both",
         }}
-        className="w-full overflow-y-auto noscroll p-5 pb-7"
+        className="w-full overflow-y-auto noscroll p-5"
       >
         <div className="flex justify-center mb-3">
           <div
@@ -1370,13 +1458,21 @@ function MatchOverlay({
         inset: 0,
         background: "rgba(11,11,18,0.92)",
         backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
         zIndex: 40,
       }}
-      className="flex flex-col items-center justify-center px-8"
+      className="flex flex-col items-center justify-center px-8 fade-in"
     >
       <button
         onClick={close}
-        style={{ position: "absolute", top: 18, right: 18 }}
+        style={{
+          position: "absolute",
+          top: "max(env(safe-area-inset-top, 12px), 12px)",
+          right: 18,
+          minWidth: 44,
+          minHeight: 44,
+        }}
+        className="flex items-center justify-center"
       >
         <X size={24} color={C.muted} />
       </button>
@@ -1437,7 +1533,7 @@ function MatchOverlay({
         <button
           onClick={close}
           style={{ color: C.muted, fontSize: 13, fontWeight: 600 }}
-          className="mt-4"
+          className="mt-4 py-2"
         >
           Seguir explorando la sala
         </button>
@@ -1633,6 +1729,7 @@ function Chat({
   setDraft,
   sendDraft,
   back,
+  isMobile,
 }: {
   p: Person;
   thread: ChatMessage[];
@@ -1641,9 +1738,11 @@ function Chat({
   setDraft: (s: string) => void;
   sendDraft: (id: string) => void;
   back: () => void;
+  isMobile: boolean;
 }) {
   const hasMsgs = thread.length > 0;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -1651,17 +1750,33 @@ function Chat({
     }
   }, [thread.length]);
 
+  const handleSend = useCallback(() => {
+    sendDraft(p.id);
+    if (isMobile && inputRef.current) {
+      inputRef.current.blur();
+    }
+  }, [sendDraft, p.id, isMobile]);
+
   return (
     <div className="flex flex-col h-full">
+      {/* Chat header */}
       <div
         style={{
           borderBottom: `1px solid ${C.line}`,
-          background: "rgba(11,11,18,0.9)",
-          backdropFilter: "blur(10px)",
+          background: "rgba(11,11,18,0.92)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          paddingTop: isMobile
+            ? "max(env(safe-area-inset-top, 8px), 8px)"
+            : undefined,
         }}
         className="flex items-center gap-3 px-3 py-3"
       >
-        <button onClick={back}>
+        <button
+          onClick={back}
+          className="flex items-center justify-center"
+          style={{ minWidth: 44, minHeight: 44 }}
+        >
           <ChevronLeft size={24} color={C.text} />
         </button>
         <Avatar person={p} size={40} />
@@ -1676,6 +1791,7 @@ function Chat({
         </div>
       </div>
 
+      {/* Messages */}
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto noscroll px-4 py-4 flex flex-col gap-3"
@@ -1739,7 +1855,7 @@ function Chat({
               <button
                 onClick={() => useIcebreaker(p.id)}
                 style={{ background: C.grad, borderRadius: 12 }}
-                className="w-full mt-3 flex items-center justify-center gap-2 py-2.5"
+                className="w-full mt-3 flex items-center justify-center gap-2 py-3"
               >
                 <Send size={14} color="#0B0B12" strokeWidth={2.6} />
                 <span
@@ -1769,7 +1885,7 @@ function Chat({
                   m.from === "me"
                     ? "16px 16px 4px 16px"
                     : "16px 16px 16px 4px",
-                maxWidth: "80%",
+                maxWidth: "82%",
               }}
               className="px-3.5 py-2.5"
             >
@@ -1789,31 +1905,41 @@ function Chat({
 
       {/* Composer */}
       <div
-        style={{ borderTop: `1px solid ${C.line}` }}
-        className="flex items-center gap-2 px-3 py-3 pb-6"
+        style={{
+          borderTop: `1px solid ${C.line}`,
+          background: "rgba(11,11,18,0.92)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          paddingBottom:
+            "max(env(safe-area-inset-bottom, 0px), 8px)",
+        }}
+        className="flex items-center gap-2 px-3 py-3"
       >
         <input
+          ref={inputRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && sendDraft(p.id)}
+          onKeyDown={(e) => e.key === "Enter" && handleSend()}
           placeholder="Escribí un mensaje..."
+          enterKeyHint="send"
+          autoComplete="off"
           style={{
             background: C.surfaceHi,
             border: `1px solid ${C.line}`,
             borderRadius: 22,
             color: C.text,
-            fontSize: 13.5,
+            fontSize: 16,
             outline: "none",
           }}
           className="flex-1 px-4 py-2.5"
         />
         <button
-          onClick={() => sendDraft(p.id)}
+          onClick={handleSend}
           style={{
             background: C.grad,
-            width: 42,
-            height: 42,
-            borderRadius: 42,
+            width: 44,
+            height: 44,
+            borderRadius: 44,
           }}
           className="flex items-center justify-center flex-shrink-0"
         >

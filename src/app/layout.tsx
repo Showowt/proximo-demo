@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Manrope, Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 
@@ -16,6 +16,15 @@ const bricolage = Bricolage_Grotesque({
 
 const SITE_URL = "https://proximo-demo.vercel.app";
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: "#0B0B12",
+};
+
 export const metadata: Metadata = {
   title: "PRÓXIMO · Hacemos visible a quién deberías conocer",
   description:
@@ -24,6 +33,11 @@ export const metadata: Metadata = {
   icons: {
     icon: "/favicon-32.png",
     apple: "/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "PRÓXIMO",
   },
   openGraph: {
     title: "PRÓXIMO · Hacemos visible a quién deberías conocer",
@@ -64,7 +78,7 @@ export default function RootLayout({
       lang="es"
       className={`${manrope.variable} ${bricolage.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-[#0B0B12]">
+      <body className="h-full overflow-hidden bg-[#0B0B12]">
         {children}
       </body>
     </html>
